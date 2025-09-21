@@ -1,7 +1,11 @@
 import requests
 import time
+import os
+import pandas as pd
+
 from bs4 import BeautifulSoup
 from datetime import datetime
+
 
 BASE_URL = "https://www.vlr.gg/matches"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
@@ -260,3 +264,33 @@ def build_time_aware_training_dataset(max_pages=1, last_n=10):
 training_data = build_time_aware_training_dataset(max_pages=1, last_n=10)
 print("Collected", len(training_data), "training samples")
 print(training_data)
+
+
+# ------------------------------------------------------------------------------------------------------------------------
+
+def prepare_training_data_for_csv(data):
+    new_data = []
+    for row in data:
+        new_row = row.copy()
+        # Ensure date is string
+        dt = row.get("date")
+        if isinstance(dt, datetime):
+            new_row["date"] = dt.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            new_row["date"] = ""  # or "NA"
+        new_data.append(new_row)
+    return new_data
+
+training_data_for_csv = prepare_training_data_for_csv(training_data)
+
+# Convert to DataFrame
+df = pd.DataFrame(training_data_for_csv)
+
+# Get the folder where the current script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Save CSV in the same folder
+csv_path = os.path.join(script_dir, "training_data.csv")
+df.to_csv(csv_path, index=False)
+
+print(f"Saved CSV to {csv_path}")
