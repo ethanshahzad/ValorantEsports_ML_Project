@@ -128,7 +128,7 @@ def get_team_history(team_url, max_matches=50):
             except Exception as e:
                 print("Error parsing datetime:", e)
 
-
+        match_url = "https://www.vlr.gg" + row["href"]
 
         history.append({
             "event": event_text,
@@ -136,7 +136,8 @@ def get_team_history(team_url, max_matches=50):
             "team2": team2_name,
             "score": score,
             "result": result,
-            "datetime": match_dt
+            "datetime": match_dt,
+            "url": match_url
         })
 
     return history
@@ -145,26 +146,38 @@ def get_team_history(team_url, max_matches=50):
 team_data = get_team_history(get_completed_matches_url(teams[0]["url"]))
 print(team_data)
 
-def compute_team_features(team, last_n=10):
-    # Only use last N matches
-    recent = team[:last_n]
+def compute_team_features(team_matches, last_n=10):
+    """
+    Compute features for a team's most recent matches.
+    team_matches should already be sorted newest → oldest.
+    """
+    # Take most recent N
+    recent = team_matches[:last_n]
+    recentwins = team_matches[:3]
 
-    wins, losses, round_diff_total = 0, 0, 0
+    winstreak, wins, losses, round_diff_total = 0, 0, 0, 0
 
+    # Winstreak = consecutive wins from newest going backward
+    for match in recentwins:
+        if match["result"] == "Win":
+            winstreak += 1
+        else:
+            break
+
+    # Aggregate stats
     for match in recent:
         if match["result"] == "Win":
             wins += 1
         elif match["result"] == "Loss":
             losses += 1
 
-        # Parse "3-1" → (3,1)
         if match["score"]:
             try:
                 left, right = match["score"].split("-")
                 left, right = int(left), int(right)
                 round_diff_total += (left - right)
             except:
-                pass  # in case of missing data
+                pass
 
     total_matches = len(recent)
     winrate = wins / total_matches if total_matches > 0 else 0
@@ -172,6 +185,7 @@ def compute_team_features(team, last_n=10):
 
     return {
         "recent_winrate": winrate,
+        "winstreak": winstreak,
         "avg_round_diff": avg_round_diff,
         "matches_used": total_matches
     }
@@ -199,7 +213,7 @@ print(res)
 # ------------------------------------------------------------------------------------------------------------------------
 
 
-def build_time_aware_training_dataset(max_pages=1, last_n=10):
+def build_time_aware_dataset(max_pages=1, last_n=10):
     dataset = []
 
     for page in range(1, max_pages + 1):
@@ -220,7 +234,7 @@ def build_time_aware_training_dataset(max_pages=1, last_n=10):
 
             team_names = [t["name"] for t in teams]
 
-            # Get match date from match page
+            # Match date
             match_page = requests.get(match_url, headers=HEADERS)
             match_soup = BeautifulSoup(match_page.text, "html.parser")
             date_div = match_soup.select_one(".match-header-date .moment-tz-convert")
@@ -231,7 +245,7 @@ def build_time_aware_training_dataset(max_pages=1, last_n=10):
                 except Exception as e:
                     print("Error parsing match datetime:", e)
 
-            # Determine winner
+            # Winner
             winner_div = row.select_one(".match-item-vs-team.mod-winner .text-of")
             winner_name = winner_div.get_text(strip=True) if winner_div else None
             match_features = {
@@ -242,13 +256,16 @@ def build_time_aware_training_dataset(max_pages=1, last_n=10):
 
             for idx, t in enumerate(teams):
                 full_history = get_team_history(get_completed_matches_url(t["url"]))
-                # Only include matches before this match date
+
+                # Exclude current match, and only take games before this one
                 past_matches = [
                     m for m in full_history
-                    if m["datetime"] and match_dt and m["datetime"] < match_dt
+                    if m.get("datetime") and match_dt and m["datetime"] < match_dt
+                    and m.get("url") != match_url
                 ]
-                # Sort chronologically and take last_n
-                past_matches = sorted(past_matches, key=lambda x: x["datetime"])[-last_n:]
+
+                # Sort newest → oldest
+                past_matches = sorted(past_matches, key=lambda x: x["datetime"], reverse=True)
 
                 feats = compute_team_features(past_matches, last_n=last_n)
                 prefix = "teamA" if t["name"] == team_names[0] else "teamB"
@@ -261,14 +278,14 @@ def build_time_aware_training_dataset(max_pages=1, last_n=10):
 
 
 
-training_data = build_time_aware_training_dataset(max_pages=1, last_n=10)
-print("Collected", len(training_data), "training samples")
-print(training_data)
+dataset = build_time_aware_dataset(max_pages=6, last_n=10)
+print("Collected", len(dataset), "data samples")
+print(dataset)
 
 
 # ------------------------------------------------------------------------------------------------------------------------
 
-def prepare_training_data_for_csv(data):
+def prepare_data_for_csv(data):
     new_data = []
     for row in data:
         new_row = row.copy()
@@ -281,16 +298,16 @@ def prepare_training_data_for_csv(data):
         new_data.append(new_row)
     return new_data
 
-training_data_for_csv = prepare_training_data_for_csv(training_data)
+data_for_csv = prepare_data_for_csv(dataset)
 
 # Convert to DataFrame
-df = pd.DataFrame(training_data_for_csv)
+df = pd.DataFrame(data_for_csv)
 
 # Get the folder where the current script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Save CSV in the same folder
-csv_path = os.path.join(script_dir, "training_data.csv")
+csv_path = os.path.join(script_dir, "dataset.csv")
 df.to_csv(csv_path, index=False)
 
 print(f"Saved CSV to {csv_path}")
