@@ -6,6 +6,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 import joblib
 
+
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.join(script_dir, "dataset.csv")
 
@@ -43,6 +45,25 @@ y_pred = model.predict(X_test)
 
 accuracy = accuracy_score(y_test, y_pred)
 print("Accuracy:", accuracy)
+
+importances = model.feature_importances_
+features = X.columns
+
+feat_importance = pd.DataFrame({
+    "feature": features,
+    "importance": importances
+}).sort_values(by="importance", ascending=False)
+
+print("\nFeature importances:\n", feat_importance.to_string(index=False))
+
+X_no_ws = X_train.drop(columns=["teamA_winstreak", "teamB_winstreak"])
+
+model_no_ws = RandomForestClassifier(n_estimators=100, random_state=1234)
+model_no_ws.fit(X_no_ws, y_train)
+acc_no_ws = accuracy_score(y_test, model_no_ws.predict(X_test.drop(columns=["teamA_winstreak", "teamB_winstreak"])))
+
+print("Accuracy with winstreak:", accuracy)
+print("Accuracy without winstreak:", acc_no_ws)
 
 # ------------------------------------------------------------------------------------------------------------------------
 # Testing GridCV Model:
