@@ -9,6 +9,11 @@ This project leverages machine learning to predict Valorant esports match outcom
 - Modeling: Utilizes XGBoost for classification tasks.
 - AI Integration: Employs OpenAI's GPT to generate confidence scores for predictions.
 
+## Requirements
+All required Python packages are listed in `requirements.txt`. You can install them with:
+```bash pip install -r requirements.txt```
+The LLM model/ requires an OpenAI API key to generate GPT confidence scores.
+
 ## Folder Structure
 - `scraper/` – Contains `vlrScraper.py` to collect match data.
 - `models/` – ML models using traditional features like diff columns.
@@ -19,7 +24,8 @@ This project leverages machine learning to predict Valorant esports match outcom
 - Run **vlrScraper.py** in the scraper folder to fetch data from the most recent completed matches.  
   - This generates a `dataset.csv` file.
 - Move `dataset.csv` to the `models/` and `LLM model/` folders.
-- Begin the classification process in each folder by running its respective py file.
+  - For `LLM model/`, run LLMFeatureGrab.py to generate the GPT confidence column, then merge it with `dataset.csv` to produce `dataset_updated.csv`.
+- Run the respective Python file in each folder to start the classification process.
 
 ## Conclusion:
 After finalizing optimizations, 70% accuracy was achieved (accuracy may vary depending on random split). While these results are promising, there is potential to improve the model further, such as by incorporating head-to-head matchups. Contributions are welcome!
