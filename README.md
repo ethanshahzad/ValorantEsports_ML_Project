@@ -11,7 +11,9 @@ This project leverages machine learning to predict Valorant esports match outcom
 
 ## Requirements
 All required Python packages are listed in `requirements.txt`. You can install them with:
-```bash pip install -r requirements.txt```
+
+```pip install -r requirements.txt```
+
 The LLM model/ requires an OpenAI API key to generate GPT confidence scores.
 
 ## Folder Structure
